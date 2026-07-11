@@ -1,0 +1,13 @@
+{
+  "name": "rowl-ai",
+  "version": "1.0.0",
+  "description": "Rowl AI — Psychology-based mental wellness platform for heartbreak and PTSD",
+  "scripts": {
+  "start": "node index.js",
+  "dev": "nodemon index.js",
+  "test": "jest --runInBand"
+},
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

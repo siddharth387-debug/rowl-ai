@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --cream: #FAF6F1;
+  --peach: #F4A896;
+  --peach-light: #FAD4CB;
+  --yellow: #F7D97A;
+  --yellow-light: #FBF0C0;
+  --terracotta: #C96A3B;
+  --sienna: #8B4513;
+  --text-dark: #3B2A1A;
+  --text-mid: #6B4C35;
+  --text-soft: #A07856;
+  --white: #FFFFFF;
+  --shadow: 0 4px 24px rgba(59,42,26,0.10);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--cream);
+  color: var(--text-dark);
+  min-height: 100vh;
+}
+
+h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+a { text-decoration: none; color: inherit; }
+
+button { cursor: pointer; border: none; outline: none; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--cream); }
+::-webkit-scrollbar-thumb { background: var(--peach); border-radius: 3px; }
