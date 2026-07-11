@@ -8,7 +8,7 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://rowl-ai.vercel.app',
+    'https://rowl-ai-pink.vercel.app',
     /\.vercel\.app$/
   ],
   credentials: true
