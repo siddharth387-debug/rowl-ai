@@ -1,9 +1,9 @@
 const router = require('express').Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const Payment = require('../models/Payment');
-const Appointment = require('../models/Appointment');
-const Resource = require('../models/Resource');
+const Payment = require('../models/payment');
+const Appointment = require('../models/appointment');
+const Resource = require('../models/resource');
 const auth = require('../middleware/auth');
 
 const razorpay = new Razorpay({

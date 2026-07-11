@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const CommunityPost = require('../models/Community');
+const CommunityPost = require('../models/community');
 const auth = require('../middleware/auth');
 
 // Get all posts

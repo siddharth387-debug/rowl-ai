@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const Appointment = require('../models/Appointment');
+const Appointment = require('../models/appointment');
 const auth = require('../middleware/auth');
 
 // Book appointment

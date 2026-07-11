@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const Resource = require('../models/Resource');
+const Resource = require('../models/resource');
 
 // Seed initial resources
 const seedResources = async () => {

@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const ChatMessage = require('../models/ChatMessage');
+const ChatMessage = require('../models/chatMessage');
 
 // -------------------------------------------------------
 // GROQ API INTEGRATION
