@@ -20,10 +20,10 @@ const Footer = () => (
         </div>
         <div style={styles.linkCol}>
           <h4 style={styles.colTitle}>Support</h4>
-          <a href="#" style={styles.link}>Privacy Policy</a>
-          <a href="#" style={styles.link}>Terms of Use</a>
-          <a href="#" style={styles.link}>Contact Us</a>
-          <a href="#" style={styles.link}>About Rowl</a>
+        <span style={styles.link}>Privacy Policy</span>
+       <span style={styles.link}>Terms of Use</span>
+       <span style={styles.link}>Contact Us</span>
+       <span style={styles.link}>About Rowl</span>
         </div>
       </div>
     </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
 
 const categories = ['all', 'story', 'question', 'support', 'milestone'];
 const catEmojis = { story: '📖', question: '❓', support: '🤗', milestone: '🌟', all: '✨' };

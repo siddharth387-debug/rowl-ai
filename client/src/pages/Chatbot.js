@@ -23,7 +23,7 @@ const Chatbot = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedMood, setSelectedMood] = useState('');
+  const [, setSelectedMood] = useState('');
   const [showMoods, setShowMoods] = useState(true);
   const messagesEnd = useRef(null);
 
