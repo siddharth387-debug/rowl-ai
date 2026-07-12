@@ -1,20 +1,9 @@
 const router = require('express').Router();
 const ChatMessage = require('../models/chatMessage');
 
-// -------------------------------------------------------
-// GROQ API INTEGRATION
-// Uses LLaMA 3 via Groq's free tier — extremely fast inference.
-// The API key lives in .env only and never reaches the frontend.
-// -------------------------------------------------------
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.1-8b-instant'; // fast, free, excellent for conversational tasks
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 
-// -------------------------------------------------------
-// SYSTEM PROMPT — the personality and boundaries for Sera
-// This is what makes Sera feel warm and purposeful rather
-// than like a generic chatbot. Changing this one prompt
-// changes the entire character of the AI.
-// -------------------------------------------------------
 const SERA_SYSTEM_PROMPT = `You are Sera, a compassionate AI companion on Rowl AI — a mental wellness platform for people healing from heartbreak, trauma, and PTSD.
 
 Your personality:
@@ -41,10 +30,6 @@ Your boundaries — you must always follow these:
 
 Remember: the person talking to you may be going through something very painful. Every response should feel like a warm hand extended in the dark.`;
 
-// -------------------------------------------------------
-// FALLBACK — only used if Groq API is unreachable
-// Keeps the app functional even during API downtime
-// -------------------------------------------------------
 const getFallbackResponse = (message) => {
   const msg = message.toLowerCase();
   if (msg.includes('suicide') || msg.includes('self-harm') || msg.includes('end my life') || msg.includes('kill myself')) {
@@ -62,11 +47,6 @@ const getFallbackResponse = (message) => {
   return "I'm here, listening with an open heart. Every feeling you share matters. Could you tell me a little more about what's on your mind right now? 🌿";
 };
 
-// -------------------------------------------------------
-// MAIN CHAT ENDPOINT
-// POST /api/chat/send
-// Body: { message, sessionId, userId }
-// -------------------------------------------------------
 router.post('/send', async (req, res) => {
   try {
     const { message, sessionId, userId } = req.body;
@@ -74,14 +54,10 @@ router.post('/send', async (req, res) => {
       return res.status(400).json({ message: 'Message cannot be empty.' });
     }
 
-    // Save the user's message to MongoDB for history tracking
     await ChatMessage.create({ sessionId, userId, sender: 'user', message });
 
-    // Fetch the last 10 messages for this session to give Sera conversation context.
-    // This is what makes the AI feel like it remembers — it sees the history each time.
     const history = await ChatMessage.find({ sessionId }).sort({ timestamp: 1 }).limit(10);
 
-    // Convert stored messages into the format Groq's API expects
     const conversationHistory = history.map(msg => ({
       role: msg.sender === 'user' ? 'user' : 'assistant',
       content: msg.message,
@@ -102,8 +78,8 @@ router.post('/send', async (req, res) => {
             { role: 'system', content: SERA_SYSTEM_PROMPT },
             ...conversationHistory,
           ],
-          max_tokens: 300,      // keeps responses concise, controls cost
-          temperature: 0.75,    // warm and natural, not too random, not too rigid
+          max_tokens: 300,
+          temperature: 0.75,
         }),
       });
 
@@ -113,21 +89,18 @@ router.post('/send', async (req, res) => {
         throw new Error(`Groq API responded with status ${groqResponse.status}`);
       }
 
-     aiText = groqData.choices?.[0]?.message?.content?.trim();
+      const groqData = await groqResponse.json();
+      aiText = groqData.choices?.[0]?.message?.content?.trim();
 
-if (!aiText) {
-  aiText = "I'm here with you, listening. Take your time — share whatever feels right. 🌸";
-} 
-      if (!aiText) throw new Error('Empty response from Groq API');
+      if (!aiText) {
+        aiText = "I'm here with you, listening. Take your time — share whatever feels right. 🌸";
+      }
 
     } catch (apiErr) {
-      // If Groq is down or key is wrong, fall back gracefully
-      // so the app keeps working — users never see a broken chatbot
       console.error('Groq API call failed, using fallback:', apiErr.message);
       aiText = getFallbackResponse(message);
     }
 
-    // Save Sera's response to MongoDB
     await ChatMessage.create({ sessionId, userId, sender: 'ai', message: aiText });
 
     res.json({ response: aiText });
@@ -141,10 +114,6 @@ if (!aiText) {
   }
 });
 
-// -------------------------------------------------------
-// CHAT HISTORY ENDPOINT
-// GET /api/chat/history/:sessionId
-// -------------------------------------------------------
 router.get('/history/:sessionId', async (req, res) => {
   try {
     const messages = await ChatMessage.find({ sessionId: req.params.sessionId })
