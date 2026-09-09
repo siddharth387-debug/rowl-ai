@@ -91,6 +91,10 @@ rowl-ai/
 ### Prerequisites
 - Node.js v16+
 - MongoDB running locally on port 27017
+🚀 Getting Started
+### 🌐 Live Deployment
+You can explore the live production build directly without local setup:  
+👉 **[https://rowl-ai-pink.vercel.app/](https://rowl-ai-pink.vercel.app/)**
 
 ### Install & Run
 
