@@ -39,7 +39,7 @@ const Appointments = () => {
 
   useEffect(() => {
     axios.get(`${API}/users/doctors`, authHeaders())
-      .then(res => { if (res.data.length > 0) setDoctors([...res.data, ...seedDoctors.slice(0, 2)]); })
+      .then(res => { if (res.data.length > 0) setDoctors(res.data); })
       .catch(() => {});
 
     if (user) {
@@ -341,6 +341,11 @@ const Appointments = () => {
                     <span>{appt.type === 'video' ? '📹' : appt.type === 'chat' ? '💬' : '🤝'} {appt.type}</span>
                   </div>
                   {appt.concern && <p style={styles.apptConcern}>"{appt.concern}"</p>}
+                  {appt.notes && (
+                    <div style={{ background: '#FAF6F1', padding: '10px 12px', borderRadius: '10px', fontSize: '0.84rem', color: '#3B2A1A', borderLeft: '3px solid #A8C5A0' }}>
+                      <strong>🩺 Therapist Session Note:</strong> {appt.notes}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -8,16 +8,34 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rowl_ai_secret_2024';
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, phone, emergencyContact } = req.body;
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: 'User already exists' });
 
+    const safeRole = role === 'doctor' ? 'doctor' : 'patient';
     const hashedPassword = await bcrypt.hash(password, 12);
-    user = new User({ name, email, password: hashedPassword, role: role || 'patient' });
+    user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: safeRole,
+      phone: phone || '',
+      emergencyContact: emergencyContact || undefined,
+    });
     await user.save();
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        emergencyContact: user.emergencyContact,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

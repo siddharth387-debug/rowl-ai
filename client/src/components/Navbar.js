@@ -16,6 +16,7 @@ const Navbar = () => {
     { to: '/chatbot', label: '🤝 Talk to Sera' },
     { to: '/resources', label: '📚 Resources' },
     { to: '/appointments', label: '🗓 Appointments' },
+    ...(user?.role === 'doctor' ? [{ to: '/doctor-dashboard', label: '🩺 Doctor Portal' }] : []),
   ];
 
   return (

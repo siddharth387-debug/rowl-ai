@@ -30,8 +30,8 @@ export const AuthProvider = ({ children }) => {
     return u;
   };
 
-  const register = async (name, email, password, role = 'patient') => {
-    const res = await axios.post(`${API}/auth/register`, { name, email, password, role });
+  const register = async (name, email, password, role = 'patient', extra = {}) => {
+    const res = await axios.post(`${API}/auth/register`, { name, email, password, role, ...extra });
     const { token: t, user: u } = res.data;
     localStorage.setItem('rowl_token', t);
     axios.defaults.headers.common['Authorization'] = `Bearer ${t}`;

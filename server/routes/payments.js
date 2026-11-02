@@ -80,10 +80,11 @@ router.post('/verify', auth, async (req, res) => {
     payment.status = 'paid';
     payment.razorpayPaymentId = razorpay_payment_id;
     payment.razorpaySignature = razorpay_signature;
-    if (appointmentId) payment.appointment = appointmentId;
+    const isValidObjectId = appointmentId && /^[0-9a-fA-F]{24}$/.test(String(appointmentId));
+    if (isValidObjectId) payment.appointment = appointmentId;
     await payment.save();
 
-    if (appointmentId) {
+    if (isValidObjectId) {
       await Appointment.findByIdAndUpdate(appointmentId, { status: 'confirmed', paymentStatus: 'paid' });
     }
 

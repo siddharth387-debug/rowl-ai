@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
@@ -50,6 +50,13 @@ const HealingJourney = () => {
   const [journalText, setJournalText] = useState('');
   const [journalMood, setJournalMood] = useState('');
   const [journalSaved, setJournalSaved] = useState(false);
+  const [entries, setEntries] = useState([]);
+
+  useEffect(() => {
+    if (user?.journalEntries) {
+      setEntries(user.journalEntries);
+    }
+  }, [user]);
 
   const handleAnswer = (score) => {
     const newAnswers = { ...answers, [questions[current].id]: score };
@@ -92,7 +99,9 @@ const HealingJourney = () => {
   const saveJournal = async () => {
     if (!user || !journalText.trim()) return;
     try {
-      await axios.post(`${API}/users/journal`, { content: journalText, mood: journalMood });
+      const res = await axios.post(`${API}/users/journal`, { content: journalText, mood: journalMood });
+      if (Array.isArray(res.data)) setEntries(res.data);
+      setJournalText('');
       setJournalSaved(true);
     } catch { setJournalSaved(false); }
   };
@@ -221,9 +230,27 @@ const HealingJourney = () => {
                   ))}
                 </div>
                 {user ? (
-                  journalSaved
-                    ? <p style={styles.savedMsg}>✅ Saved to your journal!</p>
-                    : <button style={styles.saveJournalBtn} onClick={saveJournal}>Save Entry 💛</button>
+                  <>
+                    <button style={styles.saveJournalBtn} onClick={saveJournal}>Save Entry 💛</button>
+                    {journalSaved && <p style={{ ...styles.savedMsg, marginTop: '0.6rem' }}>✅ Saved to your journal!</p>}
+                    {entries.length > 0 && (
+                      <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(244,168,150,0.3)', paddingTop: '1rem' }}>
+                        <h4 style={{ fontFamily: 'Playfair Display, serif', color: '#3B2A1A', marginBottom: '0.8rem' }}>
+                          🕰 Your Past Reflections ({entries.length})
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                          {entries.slice(0, 5).map((entry, idx) => (
+                            <div key={idx} style={{ background: '#FAF6F1', padding: '10px 14px', borderRadius: '12px', borderLeft: '3px solid #C96A3B' }}>
+                              <div style={{ fontSize: '0.78rem', color: '#A07856', marginBottom: '4px' }}>
+                                {entry.mood || '🌸'} · {entry.date ? new Date(entry.date).toLocaleDateString() : 'Recent'}
+                              </div>
+                              <p style={{ fontSize: '0.9rem', color: '#3B2A1A', margin: 0, lineHeight: 1.5 }}>{entry.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p style={styles.guestNote}><Link to="/register" style={styles.guestLink}>Sign up</Link> to save journal entries.</p>
                 )}

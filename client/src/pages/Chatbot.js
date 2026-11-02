@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { API } from '../context/AuthContext';
-import { useAuth } from '../context/AuthContext';
 
-const sessionId = 'session_' + Date.now();
+import { useAuth } from '../context/AuthContext';
+import{useChatSession} from '../hooks/useChatSession';
+import { CrisisSupportBanner, ActionCardWidget, EmergencyCalmModal } from '../components/chat/ChatWidgets';
 
 const moods = ['😔 Sad', '😰 Anxious', '😡 Angry', '😶 Numb', '🙂 Okay', '🌟 Good'];
 
@@ -18,41 +17,35 @@ const quickPrompts = [
 
 const Chatbot = () => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([
-    { sender: 'ai', message: "Hello, beautiful soul 🌸 I'm Sera, your compassionate companion here at Rowl. This is a safe, judgment-free space. How are you feeling today — really?", timestamp: new Date() }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [, setSelectedMood] = useState('');
-  const [showMoods, setShowMoods] = useState(true);
-  const messagesEnd = useRef(null);
-
+ const[input,setInput]=useState('');
+ const messagesEnd=useRef(null);
+  const {
+    messages,
+    loading,
+    crisisActive,
+    setCrisisActive,
+    calmModeOpen,
+    setCalmModeOpen,
+    sosStatus,
+    setSelectedMood,
+    showMoods,
+    sendMessage,
+    startNewSession,
+  } = useChatSession(user);
+ 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (text) => {
-    const msg = text || input;
-    if (!msg.trim()) return;
-
-    const userMsg = { sender: 'user', message: msg, timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
-    setShowMoods(false);
-
-    try {
-      const res = await axios.post(`${API}/chat/send`, { message: msg, sessionId, userId: user?.id });
-      setMessages(prev => [...prev, { sender: 'ai', message: res.data.response, timestamp: new Date() }]);
-    } catch {
-      setMessages(prev => [...prev, { sender: 'ai', message: "I'm here with you. Sometimes my connection wavers, but my care for you never does. Please try again. 💛", timestamp: new Date() }]);
-    }
-    setLoading(false);
-  };
-
+ const handleSend=(text)=>{
+  const msg=text || input;
+  if(!msg.trim())return;
+  if(!text)setInput('');
+  sendMessage(msg);
+ };
   const handleMoodSelect = (mood) => {
     setSelectedMood(mood);
-    sendMessage(`I'm feeling ${mood} today`);
+    sendMessage(`I'm feeling ${mood} today`,mood);
   };
 
   const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -67,7 +60,16 @@ const Chatbot = () => {
           <div style={styles.seraStatus}><span style={styles.statusDot}></span> Always here for you</div>
         </div>
         <div style={styles.headerBadge}>AI Companion · Confidential</div>
+        <button onClick={startNewSession} style={styles.newChatBtn}>New Chat  ↺</button>
       </div>
+      {crisisActive && <CrisisSupportBanner onDismiss={()=>setCrisisActive(false)} userName={user?.name} />}
+      <EmergencyCalmModal
+        isOpen={calmModeOpen}
+        userName={user?.name}
+        sosStatus={sosStatus}
+        emergencyContact={user?.emergencyContact}
+        onClose={() => setCalmModeOpen(false)}
+      />
 
       <div style={styles.chatArea}>
         {/* Mood selector */}
@@ -89,6 +91,7 @@ const Chatbot = () => {
               {msg.sender === 'ai' && <div style={styles.aiBubbleIcon}>🌸</div>}
               <div style={{ ...styles.bubble, ...(msg.sender === 'user' ? styles.userBubble : styles.aiBubble) }}>
                 <p style={styles.bubbleText}>{msg.message}</p>
+                {msg.sender === 'ai' && msg.actionCard && <ActionCardWidget card={msg.actionCard}/>}
                 <span style={styles.timestamp}>{formatTime(msg.timestamp)}</span>
               </div>
             </div>
@@ -111,7 +114,7 @@ const Chatbot = () => {
       <div style={styles.quickSection}>
         <div style={styles.quickScroll}>
           {quickPrompts.map((p, i) => (
-            <button key={i} onClick={() => sendMessage(p)} style={styles.quickBtn}>{p}</button>
+            <button key={i} onClick={() => handleSend(p)} style={styles.quickBtn}>{p}</button>
           ))}
         </div>
       </div>
@@ -122,10 +125,10 @@ const Chatbot = () => {
           style={styles.input}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
+          onKeyDown={e => e.key === 'Enter' && handleSend()}
           placeholder="Share what's in your heart..."
         />
-        <button style={styles.sendBtn} onClick={() => sendMessage()} disabled={loading}>
+        <button style={styles.sendBtn} onClick={() => handleSend()} disabled={loading}>
           {loading ? '...' : '💛'}
         </button>
       </div>
@@ -148,6 +151,7 @@ const styles = {
   seraStatus: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: '#6B4C35' },
   statusDot: { width: '7px', height: '7px', borderRadius: '50%', background: '#5CB85C', display: 'inline-block' },
   headerBadge: { marginLeft: 'auto', fontSize: '0.75rem', background: '#FBF0C0', color: '#8B4513', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 },
+  newChatBtn: { padding: '5px 12px', background: '#FAF6F1', border: '1px solid rgba(201,106,59,0.35)', borderRadius: '16px', fontSize: '0.75rem', color: '#6B4C35', fontWeight: 600, cursor: 'pointer' },
   chatArea: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
   moodSection: { padding: '1.5rem', textAlign: 'center', background: 'rgba(247,217,122,0.15)', borderBottom: '1px solid rgba(247,217,122,0.3)' },
   moodPrompt: { fontFamily: 'Playfair Display, serif', color: '#3B2A1A', marginBottom: '0.8rem', fontSize: '1rem' },

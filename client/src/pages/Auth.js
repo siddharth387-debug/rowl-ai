@@ -12,8 +12,8 @@ export const Login = () => {
   const handleSubmit = async () => {
     setLoading(true); setError('');
     try {
-      await login(form.email, form.password);
-      navigate('/healing');
+      const u = await login(form.email, form.password);
+      navigate(u?.role === 'doctor' ? '/doctor-dashboard' : '/healing');
     } catch (e) {
       setError(e.response?.data?.message || 'Something went wrong. Please try again.');
     }
@@ -51,16 +51,32 @@ export const Login = () => {
 export const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'patient' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'patient',
+    phone: '',
+    emergencyName: '',
+    emergencyPhone: '',
+    emergencyEmail: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.password) { setError('Please fill in all fields.'); return; }
+    if (!form.name || !form.email || !form.password) { setError('Please fill in all required fields.'); return; }
     setLoading(true); setError('');
     try {
-      await register(form.name, form.email, form.password, form.role);
-      navigate('/healing');
+      const u = await register(form.name, form.email, form.password, form.role, {
+        phone: form.phone,
+        emergencyContact: {
+          name: form.emergencyName,
+          phone: form.emergencyPhone,
+          email: form.emergencyEmail,
+        },
+      });
+      navigate(u?.role === 'doctor' ? '/doctor-dashboard' : '/healing');
     } catch (e) {
       setError(e.response?.data?.message || 'Something went wrong. Please try again.');
     }
@@ -97,6 +113,22 @@ export const Register = () => {
             <label style={styles.label}>Password</label>
             <input style={styles.input} type="password" placeholder="Create a secure password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
           </div>
+          {form.role === 'patient' && (
+            <>
+              <div style={styles.field}>
+                <label style={styles.label}>Your Phone Number (Optional · For Safety Check-Ins)</label>
+                <input style={styles.input} type="tel" placeholder="+91 98765 43210" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div style={{ ...styles.privacyNote, background: '#FAF6F1', border: '1px solid rgba(201,106,59,0.25)', marginBottom: 0 }}>
+                <div style={{ fontWeight: 700, color: '#3B2A1A', marginBottom: '6px' }}>🤝 Trusted Safety Contact (For Crisis SOS)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input style={styles.input} placeholder="Trusted person's name (e.g. Mom, Best Friend)" value={form.emergencyName} onChange={e => setForm({ ...form, emergencyName: e.target.value })} />
+                  <input style={styles.input} type="tel" placeholder="Trusted person's phone (+91...)" value={form.emergencyPhone} onChange={e => setForm({ ...form, emergencyPhone: e.target.value })} />
+                  <input style={styles.input} type="email" placeholder="Trusted person's email (for SOS alert)" value={form.emergencyEmail} onChange={e => setForm({ ...form, emergencyEmail: e.target.value })} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div style={styles.privacyNote}>
           🔒 Your information is private and will never be shared without your consent.

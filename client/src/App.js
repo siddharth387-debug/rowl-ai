@@ -9,6 +9,7 @@ import Community from './pages/Community';
 import Chatbot from './pages/Chatbot';
 import Resources from './pages/Resources';
 import Appointments from './pages/Appointments';
+import DoctorDashboard from './pages/DoctorDashboard';
 import { Login, Register } from './pages/Auth';
 import './index.css';
 
@@ -26,6 +27,7 @@ function App() {
               <Route path="/chatbot" element={<Chatbot />} />
               <Route path="/resources" element={<Resources />} />
               <Route path="/appointments" element={<Appointments />} />
+              <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
             </Routes>
