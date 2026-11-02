@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const ChatMessage = require('../models/chatMessage');
 const User = require('../models/user');
 const {
@@ -5,6 +6,9 @@ const {
   summarizeEpisodicMemory,
 } = require('../services/aiService');
 const { dispatchEmergencySOS } = require('../services/sosAlertService');
+
+// In-memory session fallback when MongoDB connection is unavailable
+const memorySessions = new Map();
 
 exports.sendMessage = async (req, res) => {
   try {
@@ -16,42 +20,56 @@ exports.sendMessage = async (req, res) => {
       return res.status(400).json({ message: 'sessionId is required.' });
     }
 
-    await ChatMessage.create({
-      sessionId,
-      userId: userId || undefined,
-      sender: 'user',
-      message: message.trim(),
-      mood: mood || undefined,
-    });
+    const isDbReady = mongoose.connection.readyState === 1;
+    let chronologicalHistory = [];
+    let userDoc = null;
+    let userContext = {};
 
-    // Tier 1 Working Memory: Fetch the MOST RECENT 10 messages (descending), then reverse to chronological order
-    const recentDocs = await ChatMessage.find({ sessionId })
-      .sort({ timestamp: -1 })
-      .limit(10)
-      .lean();
-    const chronologicalHistory = recentDocs.reverse();
+    if (isDbReady) {
+      await ChatMessage.create({
+        sessionId,
+        userId: userId || undefined,
+        sender: 'user',
+        message: message.trim(),
+        mood: mood || undefined,
+      });
+
+      const recentDocs = await ChatMessage.find({ sessionId })
+        .sort({ timestamp: -1 })
+        .limit(10)
+        .lean();
+      chronologicalHistory = recentDocs.reverse();
+
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        userDoc = await User.findById(userId)
+          .select('name email phone emergencyContact healingStage journalEntries aiMemorySummary')
+          .lean();
+        if (userDoc) {
+          userContext = {
+            name: userDoc.name,
+            healingStage: userDoc.healingStage,
+            latestMood: mood || userDoc.journalEntries?.[0]?.mood || '',
+            aiMemorySummary: userDoc.aiMemorySummary || '',
+          };
+        }
+      }
+    } else {
+      const sessionMsgs = memorySessions.get(sessionId) || [];
+      sessionMsgs.push({
+        sessionId,
+        sender: 'user',
+        message: message.trim(),
+        mood: mood || undefined,
+        timestamp: new Date(),
+      });
+      memorySessions.set(sessionId, sessionMsgs);
+      chronologicalHistory = sessionMsgs.slice(-10);
+    }
 
     const conversationHistory = chronologicalHistory.map((msg) => ({
       role: msg.sender === 'user' ? 'user' : 'assistant',
       content: msg.message,
     }));
-
-    // Tier 2 (Profile) & Tier 3 (Episodic Memory) lookup if user is authenticated
-    let userDoc = null;
-    let userContext = {};
-    if (userId) {
-      userDoc = await User.findById(userId)
-        .select('name phone emergencyContact healingStage journalEntries aiMemorySummary')
-        .lean();
-      if (userDoc) {
-        userContext = {
-          name: userDoc.name,
-          healingStage: userDoc.healingStage,
-          latestMood: mood || userDoc.journalEntries?.[0]?.mood || '',
-          aiMemorySummary: userDoc.aiMemorySummary || '',
-        };
-      }
-    }
 
     const { aiText, isCrisis, actionCard } = await generateSeraReply({
       message: message.trim(),
@@ -59,18 +77,32 @@ exports.sendMessage = async (req, res) => {
       userContext,
     });
 
-    const savedAiMsg = await ChatMessage.create({
+    let savedAiMsg = {
       sessionId,
       userId: userId || undefined,
       sender: 'ai',
       message: aiText,
       isCrisis,
       actionCard,
-    });
+      timestamp: new Date(),
+    };
 
-    const crisisCount = isCrisis
-      ? await ChatMessage.countDocuments({ sessionId, isCrisis: true })
-      : 0;
+    let crisisCount = 0;
+
+    if (isDbReady) {
+      savedAiMsg = await ChatMessage.create(savedAiMsg);
+      crisisCount = isCrisis
+        ? await ChatMessage.countDocuments({ sessionId, isCrisis: true })
+        : 0;
+    } else {
+      const sessionMsgs = memorySessions.get(sessionId) || [];
+      sessionMsgs.push(savedAiMsg);
+      memorySessions.set(sessionId, sessionMsgs);
+      crisisCount = isCrisis
+        ? sessionMsgs.filter((m) => m.isCrisis).length
+        : 0;
+    }
+
     const crisisEscalated = isCrisis && crisisCount >= 3;
 
     let sosStatus = null;
@@ -78,8 +110,7 @@ exports.sendMessage = async (req, res) => {
       sosStatus = await dispatchEmergencySOS(userDoc);
     }
 
-    // Asynchronously update Tier 3 Episodic Memory every 6 messages without delaying the HTTP response
-    if (userDoc && chronologicalHistory.length >= 6 && chronologicalHistory.length % 2 === 0) {
+    if (isDbReady && userDoc && chronologicalHistory.length >= 6 && chronologicalHistory.length % 2 === 0) {
       summarizeEpisodicMemory(userDoc.aiMemorySummary, [...chronologicalHistory, savedAiMsg])
         .then((updatedSummary) => {
           if (updatedSummary && updatedSummary !== userDoc.aiMemorySummary) {
@@ -108,6 +139,9 @@ exports.sendMessage = async (req, res) => {
 
 exports.getSessionHistory = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json(memorySessions.get(req.params.sessionId) || []);
+    }
     const messages = await ChatMessage.find({ sessionId: req.params.sessionId })
       .sort({ timestamp: 1 })
       .lean();
@@ -119,6 +153,9 @@ exports.getSessionHistory = async (req, res) => {
 
 exports.getLatestUserSession = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ sessionId: null, messages: [] });
+    }
     const { userId } = req.params;
     const latestMsg = await ChatMessage.findOne({ userId })
       .sort({ timestamp: -1 })
