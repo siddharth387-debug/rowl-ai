@@ -30,9 +30,18 @@ app.use('/api/payments', require('./routes/payments'));
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/rowl_ai';
 
-mongoose.connect(MONGO_URI)
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    dbConnected: mongoose.connection.readyState === 1,
+    dbState: mongoose.connection.readyState,
+  });
+});
+
+mongoose
+  .connect(MONGO_URI, { serverSelectionTimeoutMS: 8000 })
   .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('MongoDB error:', err));
+  .catch((err) => console.error('MongoDB error:', err.message));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🌸 Rowl AI server running on port ${PORT}`));
