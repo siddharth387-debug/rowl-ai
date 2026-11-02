@@ -121,7 +121,7 @@ export const useChatSession=(user)=>{
             setLoading(false);
         }
     },
-    [sessionId, user?.id, user?.name, selectedMood]
+    [sessionId, user, selectedMood]
     );
 
     const startNewSession=useCallback(()=>{
