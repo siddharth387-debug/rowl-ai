@@ -40,8 +40,8 @@ async function dispatchEmergencySOS(user, triggerMessage = '') {
         transporter = nodemailer.createTransport({
           service: process.env.SMTP_SERVICE || 'gmail',
           auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            user: process.env.SMTP_USER.trim(),
+            pass: process.env.SMTP_PASS.replace(/\s+/g, ''),
           },
         });
       } else {
