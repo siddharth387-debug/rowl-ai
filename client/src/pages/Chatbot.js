@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-import { useAuth } from '../context/AuthContext';
-import{useChatSession} from '../hooks/useChatSession';
+import axios from 'axios';
+import { API, useAuth } from '../context/AuthContext';
+import { useChatSession } from '../hooks/useChatSession';
 import { CrisisSupportBanner, ActionCardWidget, EmergencyCalmModal } from '../components/chat/ChatWidgets';
 
 const moods = ['😔 Sad', '😰 Anxious', '😡 Angry', '😶 Numb', '🙂 Okay', '🌟 Good'];
@@ -17,8 +17,38 @@ const quickPrompts = [
 
 const Chatbot = () => {
   const { user } = useAuth();
- const[input,setInput]=useState('');
- const messagesEnd=useRef(null);
+  const [input, setInput] = useState('');
+  const [showSafetyForm, setShowSafetyForm] = useState(false);
+  const [safetyContact, setSafetyContact] = useState({
+    name: user?.emergencyContact?.name || '',
+    phone: user?.emergencyContact?.phone || '',
+    email: user?.emergencyContact?.email || '',
+  });
+  const [safetySaved, setSafetySaved] = useState(false);
+  const messagesEnd = useRef(null);
+
+  useEffect(() => {
+    if (user?.emergencyContact) {
+      setSafetyContact({
+        name: user.emergencyContact.name || '',
+        phone: user.emergencyContact.phone || '',
+        email: user.emergencyContact.email || '',
+      });
+    }
+  }, [user]);
+
+  const saveSafetyContact = async () => {
+    try {
+      await axios.put(`${API}/users/me`, { emergencyContact: safetyContact });
+      setSafetySaved(true);
+      setTimeout(() => {
+        setSafetySaved(false);
+        setShowSafetyForm(false);
+      }, 1200);
+    } catch {
+      // ignore
+    }
+  };
   const {
     messages,
     loading,
@@ -60,14 +90,50 @@ const Chatbot = () => {
           <div style={styles.seraStatus}><span style={styles.statusDot}></span> Always here for you</div>
         </div>
         <div style={styles.headerBadge}>AI Companion · Confidential</div>
+        {user && (
+          <button onClick={() => setShowSafetyForm(!showSafetyForm)} style={styles.newChatBtn}>
+            🤝 Safety Contact
+          </button>
+        )}
         <button onClick={startNewSession} style={styles.newChatBtn}>New Chat  ↺</button>
       </div>
+      {showSafetyForm && user && (
+        <div style={{ background: '#FFF9F5', padding: '0.9rem 1.4rem', borderBottom: '1px solid #F4A896', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#3B2A1A', width: '100%' }}>
+            🤝 Trusted Safety Contact (Notified automatically if crisis threshold is reached):
+          </span>
+          <input
+            style={{ ...styles.input, padding: '7px 12px', fontSize: '0.84rem' }}
+            placeholder="Contact Name (e.g. Mom)"
+            value={safetyContact.name}
+            onChange={(e) => setSafetyContact({ ...safetyContact, name: e.target.value })}
+          />
+          <input
+            style={{ ...styles.input, padding: '7px 12px', fontSize: '0.84rem' }}
+            placeholder="Phone (+91...)"
+            value={safetyContact.phone}
+            onChange={(e) => setSafetyContact({ ...safetyContact, phone: e.target.value })}
+          />
+          <input
+            style={{ ...styles.input, padding: '7px 12px', fontSize: '0.84rem' }}
+            placeholder="Email (friend@gmail.com)"
+            value={safetyContact.email}
+            onChange={(e) => setSafetyContact({ ...safetyContact, email: e.target.value })}
+          />
+          <button
+            onClick={saveSafetyContact}
+            style={{ padding: '7px 14px', background: '#C96A3B', color: 'white', border: 'none', borderRadius: '18px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}
+          >
+            {safetySaved ? '✅ Saved!' : 'Save'}
+          </button>
+        </div>
+      )}
       {crisisActive && <CrisisSupportBanner onDismiss={()=>setCrisisActive(false)} userName={user?.name} />}
       <EmergencyCalmModal
         isOpen={calmModeOpen}
         userName={user?.name}
         sosStatus={sosStatus}
-        emergencyContact={user?.emergencyContact}
+        emergencyContact={safetyContact.name || safetyContact.phone || safetyContact.email ? safetyContact : user?.emergencyContact}
         onClose={() => setCalmModeOpen(false)}
       />
 

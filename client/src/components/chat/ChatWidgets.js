@@ -56,9 +56,23 @@ export const EmergencyCalmModal = ({ isOpen, userName, sosStatus, emergencyConta
           You have been carrying so much pain today. Let's pause everything for 30 seconds, feel your feet on the floor, and breathe together.
         </p>
 
-        {contactName && (
+        {(contactName || sosStatus?.contactEmail) && (
           <div style={modalStyles.sosDispatchedBadge}>
-            🚨 Automatic SOS Check-In Alert triggered for your Trusted Contact: <strong>{contactName}</strong>
+            <div>
+              🚨 <strong>SOS Check-In Alert Dispatched</strong> to{' '}
+              <strong>{contactName || 'Trusted Contact'}</strong>
+              {sosStatus?.contactEmail ? ` (${sosStatus.contactEmail})` : ''}
+            </div>
+            {sosStatus?.emailPreviewUrl && (
+              <a
+                href={sosStatus.emailPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'inline-block', marginTop: '6px', color: '#C96A3B', fontWeight: 700, textDecoration: 'underline' }}
+              >
+                📧 Click Here to View the Delivered SOS Email →
+              </a>
+            )}
           </div>
         )}
 
