@@ -12,7 +12,7 @@ const memorySessions = new Map();
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { message, sessionId, userId, mood } = req.body;
+    const { message, sessionId, userId, userEmail, userName, userPhone, emergencyContact, mood } = req.body;
     if (!message?.trim()) {
       return res.status(400).json({ message: 'Message cannot be empty.' });
     }
@@ -66,6 +66,20 @@ exports.sendMessage = async (req, res) => {
       chronologicalHistory = sessionMsgs.slice(-10);
     }
 
+    // Fallback userDoc from client payload if DB is disconnected or userDoc not found
+    if (!userDoc && (userEmail || userName || emergencyContact?.email)) {
+      userDoc = {
+        name: userName || 'Rowl User',
+        email: userEmail || '',
+        phone: userPhone || '',
+        emergencyContact: emergencyContact || {},
+      };
+      userContext = {
+        name: userDoc.name,
+        latestMood: mood || '',
+      };
+    }
+
     const conversationHistory = chronologicalHistory.map((msg) => ({
       role: msg.sender === 'user' ? 'user' : 'assistant',
       content: msg.message,
@@ -103,11 +117,11 @@ exports.sendMessage = async (req, res) => {
         : 0;
     }
 
-    const crisisEscalated = isCrisis && crisisCount >= 3;
+    const crisisEscalated = isCrisis && crisisCount >= 1;
 
     let sosStatus = null;
     if (crisisEscalated) {
-      sosStatus = await dispatchEmergencySOS(userDoc);
+      sosStatus = await dispatchEmergencySOS(userDoc, message.trim());
     }
 
     if (isDbReady && userDoc && chronologicalHistory.length >= 6 && chronologicalHistory.length % 2 === 0) {

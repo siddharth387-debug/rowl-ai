@@ -6,7 +6,7 @@ import {
   triggerCalmingHeartbeat,
 } from '../../utils/sensoryCalm';
 
-export const CrisisSupportBanner = ({ onDismiss, userName }) => (
+export const CrisisSupportBanner = ({ onDismiss, userName, sosStatus }) => (
   <div style={styles.crisisBanner} role="alert">
     <div style={styles.crisisTop}>
       <span style={styles.crisisBadge}>🚨 Immediate Support Available</span>
@@ -19,6 +19,16 @@ export const CrisisSupportBanner = ({ onDismiss, userName }) => (
     <p style={styles.crisisText}>
       You don't have to carry this pain alone right now. Please connect with a trained, caring human immediately:
     </p>
+    {sosStatus?.emailSent && (
+      <div style={{ fontSize: '0.82rem', color: '#A63A2B', background: '#FFEAE5', padding: '6px 10px', borderRadius: '8px' }}>
+        ✅ SOS Alert dispatched to <strong>{sosStatus.contactEmail}</strong>.{' '}
+        {sosStatus.emailPreviewUrl && (
+          <a href={sosStatus.emailPreviewUrl} target="_blank" rel="noreferrer" style={{ color: '#C96A3B', fontWeight: 700 }}>
+            📧 View Delivered SOS Email →
+          </a>
+        )}
+      </div>
+    )}
     <div style={styles.helplineRow}>
       <a href="tel:9152987821" style={styles.callBtn}>
         📞 Call iCall (9152987821)

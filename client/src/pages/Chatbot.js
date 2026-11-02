@@ -128,7 +128,7 @@ const Chatbot = () => {
           </button>
         </div>
       )}
-      {crisisActive && <CrisisSupportBanner onDismiss={()=>setCrisisActive(false)} userName={user?.name} />}
+      {crisisActive && <CrisisSupportBanner onDismiss={()=>setCrisisActive(false)} userName={user?.name} sosStatus={sosStatus} />}
       <EmergencyCalmModal
         isOpen={calmModeOpen}
         userName={user?.name}

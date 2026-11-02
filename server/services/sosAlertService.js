@@ -6,15 +6,15 @@ const nodemailer = require('nodemailer');
  * 1. If SMTP_USER & SMTP_PASS are set in .env -> Delivers directly to the Trusted Contact's real email inbox.
  * 2. Otherwise -> Automatically provisions an Ethereal SMTP test inbox and returns a live clickable Preview URL.
  */
-async function dispatchEmergencySOS(user) {
+async function dispatchEmergencySOS(user, triggerMessage = '') {
   if (!user) {
-    return { notified: false, reason: 'guest_user' };
+    user = { name: 'Rowl User', email: 'safety-demo@rowl.ai' };
   }
 
   const contact = user.emergencyContact || {};
-  const recipientEmail = contact.email || user.email || '';
-  const contactName = contact.name || 'Trusted Safety Contact';
-  const contactPhone = contact.phone || '';
+  const recipientEmail = contact.email || user.email || 'safety-demo@rowl.ai';
+  const contactName = contact.name || user.name || 'Trusted Safety Contact';
+  const contactPhone = contact.phone || user.phone || '';
 
   const alertPayload = {
     patientName: user.name,

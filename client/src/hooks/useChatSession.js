@@ -80,7 +80,11 @@ export const useChatSession=(user)=>{
             const res=await axios.post(`${API}/chat/send`,{
                 message:trimmed,
                 sessionId,
-                userId:user?.id,
+                userId:user?.id || user?._id,
+                userEmail:user?.email,
+                userName:user?.name,
+                userPhone:user?.phone,
+                emergencyContact:user?.emergencyContact,
                 mood:moodOverride ||selectedMood,
             });
 
