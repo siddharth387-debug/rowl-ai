@@ -5,7 +5,11 @@ const {
 } = require('../constants/prompts');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODELS = [
+  'openai/gpt-oss-120b',
+  'qwen/qwen3.8-27b',
+  'openai/gpt-oss-20b',
+];
 
 const CRISIS_PATTERNS = [
   'suicide',
@@ -114,34 +118,45 @@ function getFallbackResponse(message = '', userContext = {}) {
 }
 
 /**
- * Calls Groq API with configurable temperature & token limits.
+ * Calls Groq API with automatic model fallback chain & configurable temperature.
  */
-async function callGroqChat(messages, { temperature = 0.7, maxTokens = 300 } = {}) {
+async function callGroqChat(messages, { temperature = 0.7, maxTokens = 1024 } = {}) {
   if (!process.env.GROQ_API_KEY) {
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
-  });
+  let lastError = null;
+  for (const model of GROQ_MODELS) {
+    try {
+      const response = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+        }),
+      });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Groq API error (${response.status}): ${errText}`);
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = new Error(`Groq API error (${response.status}) on ${model}: ${errText}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content?.trim() || '';
+      if (content) return content;
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || '';
+  throw lastError || new Error('All Groq models failed');
 }
 
 /**
@@ -162,7 +177,7 @@ async function generateSeraReply({ message, conversationHistory, userContext }) 
         { role: 'system', content: systemPrompt },
         ...conversationHistory,
       ],
-      { temperature: isCrisis ? 0.3 : 0.7, maxTokens: 300 }
+      { temperature: isCrisis ? 0.3 : 0.75, maxTokens: 1024 }
     );
 
     if (!aiText) {
@@ -202,7 +217,7 @@ async function summarizeEpisodicMemory(existingSummary = '', recentMessages = []
         { role: 'system', content: EPISODIC_MEMORY_PROMPT },
         { role: 'user', content: promptContent },
       ],
-      { temperature: 0.2, maxTokens: 140 }
+      { temperature: 0.2, maxTokens: 600 }
     );
     return summary || existingSummary;
   } catch {
@@ -256,7 +271,7 @@ async function generateClinicalBrief(patient = {}, concern = '') {
         { role: 'system', content: CLINICAL_BRIEF_PROMPT },
         { role: 'user', content: contextText },
       ],
-      { temperature: 0.2, maxTokens: 260 }
+      { temperature: 0.2, maxTokens: 800 }
     );
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
