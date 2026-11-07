@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const User = require('../models/user');
 const auth = require('../middleware/auth');
+const { isDbConnected, findMemoryUserById } = require('../utils/memoryStore');
 
 // PTSD/Emotional Wellbeing Assessment questions
 const questions = [
@@ -36,7 +37,15 @@ router.post('/submit', auth, async (req, res) => {
     else if (avgScore <= 3) healingStage = 'growing';
     else if (avgScore <= 4) healingStage = 'processing';
 
-    await User.findByIdAndUpdate(req.user.id, { ptsdScore: avgScore, healingStage });
+    if (isDbConnected()) {
+      await User.findByIdAndUpdate(req.user.id, { ptsdScore: avgScore, healingStage });
+    } else {
+      const memUser = findMemoryUserById(req.user.id);
+      if (memUser) {
+        memUser.ptsdScore = avgScore;
+        memUser.healingStage = healingStage;
+      }
+    }
 
     const recommendations = {
       beginning: { message: 'You\'re taking the bravest first step. We\'re here for you.', actions: ['Book a session with a therapist', 'Try our grounding exercises', 'Join a support circle'] },

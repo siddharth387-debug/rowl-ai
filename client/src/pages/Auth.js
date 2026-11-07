@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { API, useAuth } from '../context/AuthContext';
 
 export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Forgot Password OTP states
+  const [resetMode, setResetMode] = useState(false);
+  const [otpStep, setOtpStep] = useState(1); // 1 = request OTP, 2 = verify OTP & new password
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [otpPreviewUrl, setOtpPreviewUrl] = useState('');
+
   const handleSubmit = async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
+    setSuccessMsg('');
     try {
       const u = await login(form.email, form.password);
       navigate(u?.role === 'doctor' ? '/doctor-dashboard' : '/healing');
@@ -20,28 +31,186 @@ export const Login = () => {
     setLoading(false);
   };
 
+  const handleRequestOtp = async () => {
+    if (!form.email.trim()) {
+      setError('Please enter your registered email address first.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccessMsg('');
+    setOtpPreviewUrl('');
+    try {
+      const res = await axios.post(`${API}/auth/forgot-password`, { email: form.email });
+      setSuccessMsg(res.data.message || '6-digit OTP sent to your email!');
+      if (res.data.emailPreviewUrl) {
+        setOtpPreviewUrl(res.data.emailPreviewUrl);
+      }
+      setOtpStep(2);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Could not send OTP. Please check your email.');
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!otpCode.trim() || !newPassword.trim()) {
+      setError('Please enter the 6-digit OTP and your new password.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axios.post(`${API}/auth/reset-password`, {
+        email: form.email,
+        otp: otpCode,
+        newPassword,
+      });
+      setSuccessMsg(res.data.message || 'Password updated! You can now sign in.');
+      setResetMode(false);
+      setOtpStep(1);
+      setOtpCode('');
+      setNewPassword('');
+      setOtpPreviewUrl('');
+    } catch (e) {
+      setError(e.response?.data?.message || 'Invalid or expired OTP.');
+    }
+    setLoading(false);
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.cardTop}>
-          <div style={styles.icon}>🌸</div>
-          <h1 style={styles.title}>Welcome Back</h1>
-          <p style={styles.sub}>Your healing space is waiting for you.</p>
+          <div style={styles.icon}>{resetMode ? '🔐' : '🌸'}</div>
+          <h1 style={styles.title}>{resetMode ? 'Reset Password' : 'Welcome Back'}</h1>
+          <p style={styles.sub}>
+            {resetMode
+              ? 'We will send a 6-digit verification code to your registered email.'
+              : 'Your healing space is waiting for you.'}
+          </p>
         </div>
         {error && <div style={styles.error}>{error}</div>}
-        <div style={styles.fields}>
-          <div style={styles.field}>
-            <label style={styles.label}>Email Address</label>
-            <input style={styles.input} type="email" placeholder="your@email.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+        {successMsg && (
+          <div style={{ ...styles.error, background: '#E8F8EE', borderColor: '#25D366', color: '#1E6F43' }}>
+            <div>✅ {successMsg}</div>
+            {otpPreviewUrl && (
+              <a
+                href={otpPreviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'inline-block', marginTop: '6px', color: '#C96A3B', fontWeight: 700, textDecoration: 'underline' }}
+              >
+                📧 View 6-Digit OTP Email →
+              </a>
+            )}
           </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Password</label>
-            <input style={styles.input} type="password" placeholder="••••••••" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-          </div>
-        </div>
-        <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Signing you in...' : 'Sign In 🌿'}
-        </button>
+        )}
+
+        {!resetMode ? (
+          <>
+            <div style={styles.fields}>
+              <div style={styles.field}>
+                <label style={styles.label}>Email Address</label>
+                <input
+                  style={styles.input}
+                  type="email"
+                  placeholder="your@email.com"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              <div style={styles.field}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={styles.label}>Password</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetMode(true);
+                      setError('');
+                      setSuccessMsg('');
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#C96A3B', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <input
+                  style={styles.input}
+                  type="password"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                />
+              </div>
+            </div>
+            <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Signing you in...' : 'Sign In 🌿'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={styles.fields}>
+              <div style={styles.field}>
+                <label style={styles.label}>Registered Email Address</label>
+                <input
+                  style={styles.input}
+                  type="email"
+                  placeholder="your@email.com"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+              {otpStep === 2 && (
+                <>
+                  <div style={styles.field}>
+                    <label style={styles.label}>6-Digit Verification OTP</label>
+                    <input
+                      style={{ ...styles.input, letterSpacing: '4px', fontWeight: 700, textAlign: 'center' }}
+                      placeholder="123456"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value)}
+                    />
+                  </div>
+                  <div style={styles.field}>
+                    <label style={styles.label}>New Password (min 6 characters)</label>
+                    <input
+                      style={styles.input}
+                      type="password"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleResetPassword()}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            {otpStep === 1 ? (
+              <button style={styles.btn} onClick={handleRequestOtp} disabled={loading}>
+                {loading ? 'Sending OTP...' : 'Send 6-Digit OTP 📧'}
+              </button>
+            ) : (
+              <button style={styles.btn} onClick={handleResetPassword} disabled={loading}>
+                {loading ? 'Updating Password...' : 'Verify OTP & Update Password 🔒'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setResetMode(false);
+                setOtpStep(1);
+                setError('');
+              }}
+              style={{ width: '100%', background: 'none', border: 'none', color: '#6B4C35', fontSize: '0.86rem', fontWeight: 600, cursor: 'pointer', marginBottom: '0.8rem' }}
+            >
+              ← Back to Sign In
+            </button>
+          </>
+        )}
+
         <p style={styles.switchText}>New here? <Link to="/register" style={styles.switchLink}>Create your safe space →</Link></p>
       </div>
     </div>

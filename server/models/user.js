@@ -26,6 +26,8 @@ const UserSchema = new mongoose.Schema({
   aiMemorySummary: { type: String, default: '' },
   shareInsightsWithDoctor: { type: Boolean, default: false },
   journalEntries: [{ content: String, mood: String, date: { type: Date, default: Date.now } }],
+  resetOtpHash: { type: String },
+  resetOtpExpires: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 

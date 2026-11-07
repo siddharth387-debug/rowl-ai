@@ -96,4 +96,67 @@ async function dispatchEmergencySOS(user, triggerMessage = '') {
   };
 }
 
-module.exports = { dispatchEmergencySOS };
+async function sendPasswordResetOtpEmail(user, otp) {
+  const recipientEmail = user?.email;
+  if (!recipientEmail) return { emailSent: false };
+
+  let emailSent = false;
+  let emailPreviewUrl = null;
+
+  try {
+    let transporter;
+    let isTestAccount = false;
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      transporter = nodemailer.createTransport({
+        service: process.env.SMTP_SERVICE || 'gmail',
+        auth: {
+          user: process.env.SMTP_USER.trim(),
+          pass: process.env.SMTP_PASS.replace(/\s+/g, ''),
+        },
+      });
+    } else {
+      const testAccount = await nodemailer.createTestAccount();
+      isTestAccount = true;
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+    }
+
+    const info = await transporter.sendMail({
+      from: `"Rowl AI Security" <${process.env.SMTP_USER || 'security@rowl.ai'}>`,
+      to: recipientEmail,
+      subject: `🌸 Your Rowl AI Password Reset OTP: ${otp}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; padding: 24px; background: #FAF6F1; border: 2px solid #F4A896; border-radius: 16px;">
+          <h2 style="color: #3B2A1A; margin-top: 0;">🌸 Password Reset Verification</h2>
+          <p>Hello <strong>${user.name || 'Healer'}</strong>,</p>
+          <p>Use the 6-digit verification code below to reset your Rowl AI password. This code is valid for <strong>10 minutes</strong>:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <span style="display: inline-block; font-size: 28px; font-weight: 800; letter-spacing: 6px; padding: 12px 24px; background: #FFF5F2; color: #C96A3B; border: 2px dashed #C96A3B; border-radius: 12px;">
+              ${otp}
+            </span>
+          </div>
+          <p style="font-size: 12px; color: #6B4C35;">If you did not request a password reset, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    emailSent = true;
+    if (isTestAccount) {
+      emailPreviewUrl = nodemailer.getTestMessageUrl(info);
+    }
+  } catch (err) {
+    console.error('Password reset OTP email error:', err.message);
+  }
+
+  return { emailSent, emailPreviewUrl };
+}
+
+module.exports = { dispatchEmergencySOS, sendPasswordResetOtpEmail };

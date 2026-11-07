@@ -1,8 +1,10 @@
 const router = require('express').Router();
 const Resource = require('../models/resource');
+const { isDbConnected, memoryResources } = require('../utils/memoryStore');
 
 // Seed initial resources
 const seedResources = async () => {
+  if (!isDbConnected()) return;
   const count = await Resource.countDocuments();
   if (count > 0) return;
   await Resource.insertMany([
@@ -15,16 +17,21 @@ const seedResources = async () => {
   ]);
 };
 
-seedResources().catch(console.error);
-
 router.get('/', async (req, res) => {
   try {
     const { category, type } = req.query;
-    const query = {};
-    if (category) query.category = category;
-    if (type) query.type = type;
-    const resources = await Resource.find({ ...query, isPublished: true });
-    res.json(resources);
+    if (isDbConnected()) {
+      await seedResources();
+      const query = {};
+      if (category) query.category = category;
+      if (type) query.type = type;
+      const resources = await Resource.find({ ...query, isPublished: true });
+      return res.json(resources);
+    }
+    const filtered = memoryResources.filter(
+      (r) => (!category || r.category === category) && (!type || r.type === type)
+    );
+    res.json(filtered);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -32,8 +39,12 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const resource = await Resource.findById(req.params.id);
-    res.json(resource);
+    if (isDbConnected()) {
+      const resource = await Resource.findById(req.params.id);
+      return res.json(resource);
+    }
+    const resource = memoryResources.find((r) => String(r._id) === String(req.params.id));
+    res.json(resource || null);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

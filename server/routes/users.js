@@ -2,6 +2,11 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const User = require('../models/user');
 const auth = require('../middleware/auth');
+const {
+  isDbConnected,
+  memoryUsers,
+  findMemoryUserById,
+} = require('../utils/memoryStore');
 
 const DEFAULT_DOCTORS = [
   {
@@ -51,6 +56,7 @@ const DEFAULT_DOCTORS = [
 ];
 
 const ensureDefaultDoctors = async () => {
+  if (!isDbConnected()) return;
   const count = await User.countDocuments({ role: 'doctor' });
   if (count > 0) return;
 
@@ -66,8 +72,14 @@ const ensureDefaultDoctors = async () => {
 // Get current user profile
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    res.json(user);
+    if (isDbConnected()) {
+      const user = await User.findById(req.user.id).select('-password');
+      if (user) return res.json(user);
+    }
+    const memUser = findMemoryUserById(req.user.id);
+    if (!memUser) return res.status(404).json({ message: 'User not found' });
+    const { password, ...safeUser } = memUser;
+    res.json(safeUser);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -99,8 +111,16 @@ router.put('/me', auth, async (req, res) => {
       updateFields.shareInsightsWithDoctor = shareInsightsWithDoctor;
     }
 
-    const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true }).select('-password');
-    res.json(user);
+    if (isDbConnected()) {
+      const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true }).select('-password');
+      if (user) return res.json(user);
+    }
+
+    const memUser = findMemoryUserById(req.user.id);
+    if (!memUser) return res.status(404).json({ message: 'User not found' });
+    Object.assign(memUser, updateFields);
+    const { password, ...safeUser } = memUser;
+    res.json(safeUser);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -110,10 +130,20 @@ router.put('/me', auth, async (req, res) => {
 router.post('/journal', auth, async (req, res) => {
   try {
     const { content, mood } = req.body;
-    const user = await User.findById(req.user.id);
-    user.journalEntries.unshift({ content, mood });
-    await user.save();
-    res.json(user.journalEntries);
+    if (isDbConnected()) {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        user.journalEntries.unshift({ content, mood });
+        await user.save();
+        return res.json(user.journalEntries);
+      }
+    }
+
+    const memUser = findMemoryUserById(req.user.id);
+    if (!memUser) return res.status(404).json({ message: 'User not found' });
+    memUser.journalEntries = memUser.journalEntries || [];
+    memUser.journalEntries.unshift({ content, mood, date: new Date() });
+    res.json(memUser.journalEntries);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -122,8 +152,14 @@ router.post('/journal', auth, async (req, res) => {
 // Get all doctors (seeds default doctors with valid MongoDB ObjectIds if none exist)
 router.get('/doctors', async (req, res) => {
   try {
-    await ensureDefaultDoctors();
-    const doctors = await User.find({ role: 'doctor' }).select('-password');
+    if (isDbConnected()) {
+      await ensureDefaultDoctors();
+      const doctors = await User.find({ role: 'doctor' }).select('-password');
+      return res.json(doctors);
+    }
+    const doctors = Array.from(memoryUsers.values())
+      .filter((u) => u.role === 'doctor')
+      .map(({ password, ...rest }) => rest);
     res.json(doctors);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
