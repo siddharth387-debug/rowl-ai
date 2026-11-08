@@ -6,6 +6,7 @@ const {
   summarizeEpisodicMemory,
 } = require('../services/aiService');
 const { dispatchEmergencySOS } = require('../services/sosAlertService');
+const { findMemoryUserById, findMemoryUserByEmail } = require('../utils/memoryStore');
 
 // In-memory session fallback when MongoDB connection is unavailable
 const memorySessions = new Map();
@@ -66,18 +67,30 @@ exports.sendMessage = async (req, res) => {
       chronologicalHistory = sessionMsgs.slice(-10);
     }
 
-    // Fallback userDoc from client payload if DB is disconnected or userDoc not found
-    if (!userDoc && (userEmail || userName || emergencyContact?.email)) {
-      userDoc = {
-        name: userName || 'Rowl User',
-        email: userEmail || '',
-        phone: userPhone || '',
-        emergencyContact: emergencyContact || {},
-      };
-      userContext = {
-        name: userDoc.name,
-        latestMood: mood || '',
-      };
+    // Fallback userDoc from memoryStore or client payload if DB is disconnected or userDoc not found
+    if (!userDoc) {
+      const memUser = (userId && findMemoryUserById(userId)) || (userEmail && findMemoryUserByEmail(userEmail));
+      if (memUser) {
+        userDoc = {
+          name: memUser.name,
+          email: memUser.email,
+          phone: userPhone || memUser.phone || '',
+          emergencyContact: emergencyContact?.email ? emergencyContact : (memUser.emergencyContact || {}),
+        };
+      } else if (userEmail || userName || emergencyContact?.email) {
+        userDoc = {
+          name: userName || 'Rowl User',
+          email: userEmail || '',
+          phone: userPhone || '',
+          emergencyContact: emergencyContact || {},
+        };
+      }
+      if (userDoc) {
+        userContext = {
+          name: userDoc.name,
+          latestMood: mood || '',
+        };
+      }
     }
 
     const conversationHistory = chronologicalHistory.map((msg) => ({
